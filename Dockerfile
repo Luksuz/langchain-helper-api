@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
 COPY src /app/src
+COPY v0_prompt.md /app/v0_prompt.md
 
 EXPOSE 8000
 

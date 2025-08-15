@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI
 
 from ..ai_models.openai_model import get_openai_chat_model
 from ..utils.schema_builder import build_pydantic_model
+from ..utils.context_loader import load_v0_context
 
 
 def generate_structured_output(
@@ -85,4 +86,29 @@ def generate_structured_output_with_images(
 
     result_obj = structured_model.invoke(messages)
     return result_obj.model_dump()
+
+
+def enhance_v0_prompt(user_description: str, model_name: str, temperature: float) -> str:
+    """Use the LLM to enhance the user's description into a clear V0 prompt.
+
+    The enhanced prompt is then concatenated with the v0 context so app builders
+    have immediate, concrete endpoint instructions.
+    """
+    chat_model: ChatOpenAI = get_openai_chat_model(model_name, temperature)
+
+    system = SystemMessage(
+        content=(
+            "You are an expert app-builder prompt engineer. Rewrite the user's description "
+            "into a concise, explicit prompt for an app builder (like V0). "
+            "The prompt should specify: inputs, UI elements, actions/triggers, API calls to this backend (if relevant), "
+            "and expected outputs in structured terms. Keep it brief but unambiguous."
+            "Explicitly mention not to use mock data or images in the app."
+        )
+    )
+    human = HumanMessage(content=user_description)
+    enhanced = chat_model.invoke([system, human])
+
+    context = load_v0_context()
+    composed = enhanced.content.strip() + "\n\n" + context
+    return composed
 

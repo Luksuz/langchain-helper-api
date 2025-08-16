@@ -7,6 +7,8 @@ from .service.structured_service import generate_structured_output, generate_str
 from .api_models.structured_vision_request import StructuredGenVisionRequest
 from .api_models.builder_prompt_request import BuilderPromptRequest
 from .api_models.prompt_enhance_request import EnhancePromptRequest
+from .api_models.extract_request import ExtractRequest
+from .api_models.client_message_request import ClientMessageRequest
 from .utils.context_loader import load_v0_context
 
 app = FastAPI(title="Handy Structured Output API", version="0.1.0")
@@ -110,6 +112,21 @@ def builder_page() -> str:
           <div id=\"out\" class=\"prose prose-invert max-w-none bg-slate-900/60 border border-slate-800 rounded-xl p-4 break-words whitespace-pre-wrap overflow-x-auto\"></div>
           <p id=\"copyMsg\" class=\"text-emerald-400 text-sm mt-2 hidden\">Copied to clipboard</p>
         </section>
+
+        <section id=\"clientSection\" class=\"mt-8\">
+          <div class=\"flex items-center justify-between mb-2\">
+            <h2 class=\"text-xl font-semibold\">Client Message</h2>
+            <div class=\"flex items-center gap-2\">
+              <button id=\"genClient\" class=\"inline-flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-sm font-semibold\">Generate</button>
+              <button id=\"copyClient\" class=\"inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-sm font-semibold\">
+                <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\" class=\"w-4 h-4\"><path d=\"M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z\" /><path d=\"M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h8a2 2 0 00-2-2H5z\" /></svg>
+                Copy Message
+              </button>
+            </div>
+          </div>
+          <textarea id=\"clientMsg\" class=\"w-full min-h-[180px] resize-y rounded-lg bg-slate-900 border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 p-3 text-slate-100 placeholder:text-slate-500 break-words whitespace-pre-wrap\" placeholder=\"Generated outreach message will appear here...\"></textarea>
+          <p id=\"copyClientMsg\" class=\"text-emerald-400 text-sm mt-2 hidden\">Copied to clipboard</p>
+        </section>
       </div>
 
       <script>
@@ -122,15 +139,20 @@ def builder_page() -> str:
         const copyBtn = document.getElementById('copy');
         const copyMsg = document.getElementById('copyMsg');
 
+        const clientMsg = document.getElementById('clientMsg');
+        const copyClientBtn = document.getElementById('copyClient');
+        const genClientBtn = document.getElementById('genClient');
+        const copyClientMsg = document.getElementById('copyClientMsg');
+
         let latestPrompt = '';
 
         function setLoading(isLoading) {
           if (isLoading) {
             loader.classList.remove('hidden');
-            genBtn.disabled = true; clearBtn.disabled = true; if (copyBtn) copyBtn.disabled = true;
+            genBtn.disabled = true; clearBtn.disabled = true; if (copyBtn) copyBtn.disabled = true; if (copyClientBtn) copyClientBtn.disabled = true; if (genClientBtn) genClientBtn.disabled = true;
           } else {
             loader.classList.add('hidden');
-            genBtn.disabled = false; clearBtn.disabled = false; if (copyBtn) copyBtn.disabled = false;
+            genBtn.disabled = false; clearBtn.disabled = false; if (copyBtn) copyBtn.disabled = false; if (copyClientBtn) copyClientBtn.disabled = false; if (genClientBtn) genClientBtn.disabled = false;
           }
         }
 
@@ -177,6 +199,39 @@ def builder_page() -> str:
             }
           });
         }
+
+        if (copyClientBtn) {
+          copyClientBtn.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(clientMsg.value || '');
+              copyClientMsg.classList.remove('hidden');
+              setTimeout(() => copyClientMsg.classList.add('hidden'), 1500);
+            } catch (e) {
+              // no-op
+            }
+          });
+        }
+
+        if (genClientBtn) {
+          genClientBtn.addEventListener('click', async () => {
+            const text = desc.value.trim();
+            if (!text) return;
+            setLoading(true);
+            try {
+              const res = await fetch('/generate-client-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_description: text })
+              });
+              const data = await res.json();
+              clientMsg.value = data.message || '';
+            } catch (e) {
+              clientMsg.value = 'Failed to generate message.';
+            } finally {
+              setLoading(false);
+            }
+          });
+        }
       </script>
     </body>
     </html>
@@ -210,4 +265,40 @@ def post_v0_enhance(body: EnhancePromptRequest) -> JSONResponse:
         raise HTTPException(status_code=500, detail=str(exc))
 
     return JSONResponse({"prompt": prompt})
+
+
+@app.post("/extract")
+def post_extract(body: ExtractRequest) -> JSONResponse:
+    from .service.structured_service import extract_with_firecrawl
+
+    try:
+        data = extract_with_firecrawl(
+            urls=body.urls,
+            prompt=body.prompt,
+            structure=body.structure,
+            api_key=body.api_key,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return JSONResponse(data)
+
+
+@app.post("/generate-client-message")
+def post_generate_client_message(body: ClientMessageRequest) -> JSONResponse:
+    from .service.structured_service import generate_client_message
+
+    try:
+        msg = generate_client_message(
+            user_description=body.user_description,
+            website=body.website,
+            github=body.github,
+            linkedin=body.linkedin,
+            model_name=body.model,
+            temperature=body.temperature,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return JSONResponse({"message": msg})
 

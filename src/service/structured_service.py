@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from ..ai_models.openai_model import get_openai_chat_model
 from ..utils.schema_builder import build_pydantic_model
 from ..utils.context_loader import load_v0_context
+from firecrawl import FirecrawlApp
 
 
 def generate_structured_output(
@@ -111,4 +112,38 @@ def enhance_v0_prompt(user_description: str, model_name: str, temperature: float
     context = load_v0_context()
     composed = enhanced.content.strip() + "\n\n" + context
     return composed
+
+
+def extract_with_firecrawl(urls: list[str], prompt: str, structure: dict, api_key: str | None) -> dict:
+    """Use Firecrawl to extract structured data from web pages according to a
+    provided schema (example dict or JSON Schema)."""
+    app = FirecrawlApp(api_key=api_key)
+    # Build Pydantic model to ensure we provide a JSON schema Firecrawl accepts
+    dynamic_model = build_pydantic_model(structure)
+    schema = dynamic_model.model_json_schema()
+    result = app.extract(urls, prompt=prompt, schema=schema)
+    return result
+
+
+def generate_client_message(
+    user_description: str,
+    website: str,
+    github: str,
+    linkedin: str,
+    model_name: str,
+    temperature: float,
+) -> str:
+    """Have the LLM tailor a brief client outreach message to the app idea."""
+    chat_model: ChatOpenAI = get_openai_chat_model(model_name, temperature)
+    system = SystemMessage(
+        content=(
+            "You are a concise, warm outreach writer. Given an app idea, write a short "
+            "message tailored to that idea, including a friendly opener with 2 waving hand emojis, "
+            "a sentence mentioning a demo and a loom video, and a polite CTA asking to message back with a hugging face emoji. "
+            "End with 'Sincerely, Luka' and include website, github, and LinkedIn as separate lines. Keep under 120 words."
+        )
+    )
+    human = HumanMessage(content=f"App idea: {user_description}\nWebsite: {website}\nGitHub: {github}\nLinkedIn: {linkedin}")
+    resp = chat_model.invoke([system, human])
+    return resp.content
 

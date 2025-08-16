@@ -9,6 +9,19 @@ USE THIS CONTEXT FOR STRUCUTRED RESPONSES USING LLMS
 - Endpoints:
   - `POST /generate` (text-only structured output)
   - `POST /generate-vision` (structured output with images)
+  - `POST /extract` (structured web extraction via Firecrawl)
+  
+  - `POST /generate-vision` Body fields:
+    - `system_prompt` (string, optional)
+    - `user_prompt` (string, required)
+    - `structure` (object, required) — either an example object or a JSON Schema with `{type:"object", properties:{...}}`
+    - `images` (array, optional) — elements:
+      - `source_type`: `"url" | "base64"`
+      - `url?`: string (if `source_type=url`)
+      - `data?`: base64 string (if `source_type=base64`)
+      - `mime_type?`: string (default `image/jpeg`)
+    - `model` (string, optional; default `gpt-4o-mini`)
+    - `temperature` (number, optional; default `0`)
 - Response shape:
   - `{ "data": <object>, "model_name": <string> }`
 
@@ -46,6 +59,7 @@ Notes:
 - The backend enforces the schema via LangChain's with_structured_output.
 - For JSON Schema, use { type: "object", properties: { ... }, required?: [ ... ] }.
 - For base64 images, provide only the raw base64; the backend will build a data URL.
+ - For extraction, send { urls, prompt, structure } to `/extract`. The backend converts `structure` to a JSON Schema and calls Firecrawl.
 ```
 
 Minimal fetch example (text-only):
@@ -57,6 +71,21 @@ curl -X POST http://localhost:8000/generate \
     "system_prompt": "You are a helpful assistant.",
     "user_prompt": "Return a person object matching the schema.",
     "structure": {"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name","age"]}
+  }'
+```
+
+Minimal fetch example (vision):
+
+```bash
+curl -X POST http://localhost:8000/generate-vision \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "system_prompt": "You are a helpful assistant that uses the image(s) to produce structured outputs.",
+    "user_prompt": "Describe the scene and extract key attributes in the requested structure.",
+    "structure": {"type":"object","properties":{"summary":{"type":"string"},"objects":{"type":"array","items":{"type":"string"}}},"required":["summary","objects"]},
+    "images": [{"source_type": "url", "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg"}],
+    "model": "gpt-4o-mini",
+    "temperature": 0
   }'
 ```
 

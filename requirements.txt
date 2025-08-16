@@ -2,5 +2,6 @@ fastapi
 langchain
 langchain-openai
 uvicorn
+firecrawl
 
 python-dotenv

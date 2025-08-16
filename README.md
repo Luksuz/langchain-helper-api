@@ -58,6 +58,14 @@ docker run -e OPENAI_API_KEY=YOUR_KEY_HERE -p 8000:8000 handy-api
     - `model` (optional): OpenAI chat model with vision support (default `gpt-4o-mini`)
     - `temperature` (optional): float (default `0.0`)
 
+- POST `/extract` (Firecrawl integration)
+  - Body:
+    - `urls`: array of strings (supports wildcards like `https://docs.firecrawl.dev/*`)
+    - `prompt`: string describing what to extract
+    - `structure`: object (example dict or JSON Schema; backend converts to JSON Schema dynamically)
+    - `api_key` (optional): Firecrawl API key; otherwise use `FIRECRAWL_API_KEY` if configured by the SDK
+  - Returns: Firecrawl response payload
+
 ### Example (example dict as structure)
 
 ```bash
@@ -137,10 +145,32 @@ curl -X POST http://localhost:8000/generate-vision \
     "temperature": 0
   }'
 ```
+
+### Example (`/extract` with Firecrawl)
+
+```bash
+curl -X POST http://localhost:8000/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": [
+      "https://docs.firecrawl.dev/*",
+      "https://firecrawl.dev/",
+      "https://www.ycombinator.com/companies/"
+    ],
+    "prompt": "Extract the company mission, whether it supports SSO, whether it is open source, and whether it is in Y Combinator from the page.",
+    "structure": {
+      "company_mission": "string",
+      "supports_sso": false,
+      "is_open_source": true,
+      "is_in_yc": true
+    }
+  }'
+```
 ```
 
 ### Notes
 
 - The service dynamically builds a Pydantic model from your `structure` and invokes the OpenAI chat model using LangChain `with_structured_output()` to enforce the schema.
 - Set `OPENAI_API_KEY` in your environment for both local and Docker runs.
+- For `/extract`, install and configure Firecrawl. You can pass `api_key` in the request or configure `FIRECRAWL_API_KEY` if supported.
 

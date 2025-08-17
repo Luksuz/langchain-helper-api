@@ -22,6 +22,12 @@ USE THIS CONTEXT FOR STRUCUTRED RESPONSES USING LLMS
       - `mime_type?`: string (default `image/jpeg`)
     - `model` (string, optional; default `gpt-4o-mini`)
     - `temperature` (number, optional; default `0`)
+
+  - `POST /extract` Body fields:
+    - `urls` (array, required): list of URLs or patterns (e.g., `https://docs.firecrawl.dev/*`)
+    - `prompt` (string, required): instruction describing what to extract
+    - `structure` (object, required): example object or JSON Schema; backend converts to JSON Schema dynamically
+    - `api_key` (string, optional): Firecrawl API key (if not using environment configuration)
 - Response shape:
   - `{ "data": <object>, "model_name": <string> }`
 
@@ -51,6 +57,15 @@ Body fields:
   { source_type: "url" | "base64", url?: string, data?: string, mime_type?: string }
 - model (string, optional; default gpt-4o-mini)
 - temperature (number, optional; default 0)
+
+Extraction endpoint (structured web extraction via Firecrawl):
+POST https://langchain-helper-api-production.up.railway.app/extract
+Content-Type: application/json
+Body fields:
+- urls (array, required)
+- prompt (string, required)
+- structure (object, required)
+- api_key (string, optional)
 
 Response shape for both endpoints:
 { "data": <structured_object>, "model_name": "<model>" }

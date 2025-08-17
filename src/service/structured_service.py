@@ -11,6 +11,7 @@ from ..ai_models.openai_model import get_openai_chat_model
 from ..utils.schema_builder import build_pydantic_model
 from ..utils.context_loader import load_v0_context
 from firecrawl import FirecrawlApp
+from typing import Any
 
 
 def generate_structured_output(
@@ -122,7 +123,31 @@ def extract_with_firecrawl(urls: list[str], prompt: str, structure: dict, api_ke
     dynamic_model = build_pydantic_model(structure)
     schema = dynamic_model.model_json_schema()
     result = app.extract(urls, prompt=prompt, schema=schema)
-    return result
+    # Normalize to a plain dict for JSON serialization
+    if isinstance(result, dict):
+        return result
+    # Try common serialization hooks
+    for attr in ("model_dump", "dict", "to_dict"):
+        fn = getattr(result, attr, None)
+        if callable(fn):
+            try:
+                return fn()  # type: ignore[misc]
+            except Exception:
+                pass
+    # Fallback: try JSON string conversion
+    json_str = getattr(result, "json", None)
+    if callable(json_str):
+        import json as _json
+        try:
+            return _json.loads(json_str())
+        except Exception:
+            pass
+    # Last resort: use __dict__ if present
+    data: Any = getattr(result, "__dict__", None)
+    if isinstance(data, dict):
+        return data
+    # If all else fails, wrap as string
+    return {"result": str(result)}
 
 
 def generate_client_message(

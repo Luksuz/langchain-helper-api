@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.encoders import jsonable_encoder
 from .api_models.structured_request import StructuredGenRequest
 from .api_models.structured_response import StructuredGenResponse
 from .service.structured_service import generate_structured_output, generate_structured_output_with_images
@@ -164,18 +165,30 @@ def builder_page() -> str:
           out.innerHTML = '';
           copyMsg.classList.add('hidden');
           try {
-            const res = await fetch('/prompt/v0/enhance', {
+            const enhanceReq = fetch('/prompt/v0/enhance', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ user_description: text })
             });
-            const data = await res.json();
+            const clientReq = fetch('/generate-client-message', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_description: text })
+            });
+
+            const [enhanceRes, clientRes] = await Promise.all([enhanceReq, clientReq]);
+            const data = await enhanceRes.json();
+            const clientData = await clientRes.json();
+
             latestPrompt = data.prompt || JSON.stringify(data);
             out.innerHTML = window.marked.parse(latestPrompt);
+            if (clientData && typeof clientData.message === 'string') {
+              clientMsg.value = clientData.message;
+            }
             resultSection.classList.remove('hidden');
           } catch (e) {
             resultSection.classList.remove('hidden');
-            out.innerHTML = '<div class=\\"text-red-400\\">Failed to generate prompt.</div>';
+            out.innerHTML = '<div class=\"text-red-400\">Failed to generate prompt.</div>';
           } finally {
             setLoading(false);
           }
@@ -281,7 +294,7 @@ def post_extract(body: ExtractRequest) -> JSONResponse:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    return JSONResponse(data)
+    return JSONResponse(content=jsonable_encoder(data))
 
 
 @app.post("/generate-client-message")

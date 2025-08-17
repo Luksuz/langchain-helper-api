@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from .api_models.structured_request import StructuredGenRequest
 from .api_models.structured_response import StructuredGenResponse
@@ -10,7 +10,13 @@ from .api_models.builder_prompt_request import BuilderPromptRequest
 from .api_models.prompt_enhance_request import EnhancePromptRequest
 from .api_models.extract_request import ExtractRequest
 from .api_models.client_message_request import ClientMessageRequest
+from .api_models.render_pdf_request import RenderPdfRequest
 from .utils.context_loader import load_v0_context
+
+from .routers.generation import router as generation_router
+from .routers.extract import router as extract_router
+from .routers.render_pdf import router as render_pdf_router
+from .routers.client_message import router as client_message_router
 
 app = FastAPI(title="Handy Structured Output API", version="0.1.0")
 
@@ -23,45 +29,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.post("/generate", response_model=StructuredGenResponse)
-def post_generate(request: StructuredGenRequest) -> StructuredGenResponse:
-    try:
-        result = generate_structured_output(
-            system_prompt=request.system_prompt,
-            user_prompt=request.user_prompt,
-            structure=request.structure,
-            model_name=request.model,
-            temperature=request.temperature,
-        )
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    return StructuredGenResponse(data=result, model_name=request.model)
-
-
-# Convenience: `uvicorn src.main:app --reload`
-
-
-@app.post("/generate-vision", response_model=StructuredGenResponse)
-def post_generate_vision(request: StructuredGenVisionRequest) -> StructuredGenResponse:
-    try:
-        result = generate_structured_output_with_images(
-            system_prompt=request.system_prompt,
-            user_prompt=request.user_prompt,
-            images=[img.model_dump() for img in request.images],
-            structure=request.structure,
-            model_name=request.model,
-            temperature=request.temperature,
-        )
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    return StructuredGenResponse(data=result, model_name=request.model)
+app.include_router(generation_router)
+app.include_router(extract_router)
+app.include_router(render_pdf_router)
+app.include_router(client_message_router)
 
 
 @app.get("/builder", response_class=HTMLResponse)
@@ -252,16 +223,7 @@ def builder_page() -> str:
     return html
 
 
-@app.post("/prompt/v0")
-def post_v0_prompt(body: BuilderPromptRequest) -> JSONResponse:
-    context = load_v0_context()
-    base_instructions = (
-        body.user_description.strip()
-        + "\n\n"
-        + "The prompt above should be postfixed with the following API usage context.\n"
-    )
-    composed = base_instructions + context
-    return JSONResponse({"prompt": composed})
+# Removed: legacy endpoint that appended context. The enhancer now injects context in system prompt.
 
 
 @app.post("/prompt/v0/enhance")
@@ -278,40 +240,4 @@ def post_v0_enhance(body: EnhancePromptRequest) -> JSONResponse:
         raise HTTPException(status_code=500, detail=str(exc))
 
     return JSONResponse({"prompt": prompt})
-
-
-@app.post("/extract")
-def post_extract(body: ExtractRequest) -> JSONResponse:
-    from .service.structured_service import extract_with_firecrawl
-
-    try:
-        data = extract_with_firecrawl(
-            urls=body.urls,
-            prompt=body.prompt,
-            structure=body.structure,
-            api_key=body.api_key,
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    return JSONResponse(content=jsonable_encoder(data))
-
-
-@app.post("/generate-client-message")
-def post_generate_client_message(body: ClientMessageRequest) -> JSONResponse:
-    from .service.structured_service import generate_client_message
-
-    try:
-        msg = generate_client_message(
-            user_description=body.user_description,
-            website=body.website,
-            github=body.github,
-            linkedin=body.linkedin,
-            model_name=body.model,
-            temperature=body.temperature,
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    return JSONResponse({"message": msg})
 

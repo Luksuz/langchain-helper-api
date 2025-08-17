@@ -20,7 +20,7 @@ class ClientMessageRequest(BaseModel):
         description="LinkedIn profile to include in signature",
     )
     model: str = Field(
-        default="gpt-4o-mini", description="OpenAI chat model name (for message)"
+        default="gpt-5-mini", description="OpenAI chat model name (for message)"
     )
     temperature: float = Field(default=0.3, ge=0.0, le=2.0)
 

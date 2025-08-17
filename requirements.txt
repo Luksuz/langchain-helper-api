@@ -3,5 +3,6 @@ langchain
 langchain-openai
 uvicorn
 firecrawl
+pdfkit
 
 python-dotenv

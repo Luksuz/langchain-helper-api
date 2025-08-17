@@ -28,7 +28,7 @@ class StructuredGenVisionRequest(BaseModel):
         default_factory=list, description="List of images to include in the prompt"
     )
     model: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-5-mini",
         description="OpenAI chat model name supporting vision, e.g. gpt-4o, gpt-4o-mini",
     )
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)

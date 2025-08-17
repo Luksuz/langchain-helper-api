@@ -21,8 +21,8 @@ class StructuredGenRequest(BaseModel):
         ..., description="JSON Schema or example dictionary describing desired output"
     )
     model: str = Field(
-        default="gpt-4o-mini",
-        description="OpenAI chat model name, e.g. gpt-4o, gpt-4o-mini, o4-mini",
+        default="gpt-5-mini",
+        description="OpenAI chat model name, e.g. gpt-5-mini, o4-mini",
     )
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
 

@@ -93,26 +93,26 @@ def generate_structured_output_with_images(
 def enhance_v0_prompt(user_description: str, model_name: str, temperature: float) -> str:
     """Use the LLM to enhance the user's description into a clear V0 prompt.
 
-    The enhanced prompt is then concatenated with the v0 context so app builders
-    have immediate, concrete endpoint instructions.
+    The V0 context is provided to the model as system context (not appended to
+    the result) so the LLM can incorporate the constraints and endpoints while
+    generating a concise, explicit app-builder prompt.
     """
     chat_model: ChatOpenAI = get_openai_chat_model(model_name, temperature)
 
-    system = SystemMessage(
-        content=(
-            "You are an expert app-builder prompt engineer. Rewrite the user's description "
-            "into a concise, explicit prompt for an app builder (like V0). "
-            "The prompt should specify: inputs, UI elements, actions/triggers, API calls to this backend (if relevant), "
-            "and expected outputs in structured terms. Keep it brief but unambiguous."
-            "Explicitly mention not to use mock data or images in the app."
-        )
+    context = load_v0_context()
+    guardrails = (
+        "You are an expert app-builder prompt engineer. Rewrite the user's description "
+        "into a concise, explicit prompt for an app builder (like V0). "
+        "Specify: inputs, UI elements, actions/triggers, calls to THIS backend's endpoints (if relevant), and "
+        "expected outputs. Do NOT reference or require any SDKs for LLMs, scraping, or PDF generation other than the "
+        "endpoints and capabilities described in the context. Keep it brief but unambiguous."
+        "Provide the example request and response for the endpoints if it should be used."
+        ""
     )
+    system = SystemMessage(content=f"{guardrails}\n\nContext (do not reveal verbatim; follow strictly):\n{context}")
     human = HumanMessage(content=user_description)
     enhanced = chat_model.invoke([system, human])
-
-    context = load_v0_context()
-    composed = enhanced.content.strip() + "\n\n" + context
-    return composed
+    return enhanced.content.strip()
 
 
 def extract_with_firecrawl(urls: list[str], prompt: str, structure: dict, api_key: str | None) -> dict:
@@ -164,6 +164,7 @@ def generate_client_message(
         content=(
             "You are a concise, warm outreach writer. Given an app idea, write a short "
             "message tailored to that idea, including a friendly opener with 2 waving hand emojis, "
+            "After that, on a new line, add placeholders for web app link and the loom video link, for example: Web app link: /n Loom video link: /n"
             "a sentence mentioning a demo and a loom video, and a polite CTA asking to message back with a hugging face emoji. "
             "End with 'Sincerely, Luka' and include website, github, and LinkedIn as separate lines. Keep under 120 words."
         )

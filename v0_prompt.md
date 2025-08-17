@@ -10,6 +10,7 @@ USE THIS CONTEXT FOR STRUCUTRED RESPONSES USING LLMS
   - `POST /generate` (text-only structured output)
   - `POST /generate-vision` (structured output with images)
   - `POST /extract` (structured web extraction via Firecrawl)
+  - `POST /render-pdf` (HTML → PDF rendering)
   
   - `POST /generate-vision` Body fields:
     - `system_prompt` (string, optional)
@@ -67,6 +68,12 @@ Body fields:
 - structure (object, required)
 - api_key (string, optional)
 
+Render PDF endpoint (HTML → PDF):
+POST https://langchain-helper-api-production.up.railway.app/render-pdf
+Content-Type: application/json
+Body fields:
+- html (string, required)
+
 Response shape for both endpoints:
 { "data": <structured_object>, "model_name": "<model>" }
 
@@ -75,6 +82,7 @@ Notes:
 - For JSON Schema, use { type: "object", properties: { ... }, required?: [ ... ] }.
 - For base64 images, provide only the raw base64; the backend will build a data URL.
  - For extraction, send { urls, prompt, structure } to `/extract`. The backend converts `structure` to a JSON Schema and calls Firecrawl.
+ - Do not reference or require SDKs outside of this context for LLMs, scraping, or PDF generation. Always call the provided endpoints.
 ```
 
 Minimal fetch example (text-only):

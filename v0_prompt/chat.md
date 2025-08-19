@@ -1,6 +1,12 @@
-### /chat — Query a session using vector similarity (pgvector)
+### /chat — Conversational AI with document context (pgvector + OpenAI)
 
-Use this to answer user questions over the ingested session. The service embeds the query, retrieves the top-k similar chunks (default 15), and returns them so your app can compose an answer.
+Use this to have conversations with an AI assistant that has access to your ingested documents. The service accepts a list of messages (conversation history), performs similarity search using the latest user message, and generates contextual responses using OpenAI with the retrieved document chunks.
+
+**Features:**
+- Supports full conversation history with message roles (user, assistant, system)
+- Retrieves relevant document chunks using vector similarity search
+- Generates AI responses with document context using OpenAI GPT models
+- Returns both the generated response and the source chunks used
 
 Sample request
 ```http
@@ -9,7 +15,20 @@ Content-Type: application/json
 
 {
   "session_id": "c0b9f9a8-9a9a-4e9a-8a5f-4a2f2b5e0001",
-  "query": "Summarize the account details",
+  "messages": [
+    {
+      "role": "user", 
+      "content": "What are the main points in this document?"
+    },
+    {
+      "role": "assistant", 
+      "content": "Based on the document, the main points are..."
+    },
+    {
+      "role": "user", 
+      "content": "Can you elaborate on the financial section?"
+    }
+  ],
   "top_k": 15
 }
 ```
@@ -18,12 +37,33 @@ Sample response
 ```json
 {
   "session_id": "c0b9f9a8-9a9a-4e9a-8a5f-4a2f2b5e0001",
-  "query": "Summarize the account details",
-  "results": [
-    {"filename": "sample.pdf", "chunk_id": 0, "content": "...", "distance": 0.12},
-    {"filename": "sample.pdf", "chunk_id": 1, "content": "...", "distance": 0.14}
-  ]
+  "response": "Based on the financial section of your documents, here are the key details...",
+  "chunks": [
+    {
+      "filename": "financial_report.pdf", 
+      "chunk_id": 2, 
+      "content": "Revenue for Q3 was $1.2M, representing a 15% increase...", 
+      "distance": 0.08
+    },
+    {
+      "filename": "budget.docx", 
+      "chunk_id": 0, 
+      "content": "Operating expenses include marketing $200K, salaries $800K...", 
+      "distance": 0.12
+    }
+  ],
+  "context_used": true
 }
 ```
+
+**Message Roles:**
+- `user`: User messages/questions
+- `assistant`: AI assistant responses  
+- `system`: System instructions (optional)
+
+**Parameters:**
+- `session_id`: UUID of the ingested document session
+- `messages`: Array of conversation messages with role and content
+- `top_k`: Number of similar chunks to retrieve (default: 15, max: 50)
 
 

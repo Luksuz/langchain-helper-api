@@ -1,6 +1,14 @@
-## Handy Structured Output API
+## Handy AI API
 
-FastAPI service that takes a system prompt + user prompt and either an example JSON object or a JSON Schema, and returns structured output using LangChain structured outputs with OpenAI.
+Comprehensive FastAPI service providing:
+- **Structured Output Generation**: Convert prompts to structured JSON using LangChain + OpenAI
+- **Document AI**: Ingest, process, and chat with PDF/DOCX documents using pgvector + embeddings
+- **Conversational AI**: Context-aware chat with document knowledge and conversation history
+- **Database Operations**: Setup PostgreSQL schemas and query databases securely for v0 apps
+- **AI Schema Generation**: Automatically generate database schemas from project descriptions
+- **Text Extraction**: Native PDF/DOCX text extraction and Google Document AI OCR
+- **Web Scraping**: Extract structured data from websites using Firecrawl
+- **PDF Generation**: Convert HTML to professional PDFs
 
 Reference: [LangChain Structured outputs](https://python.langchain.com/docs/concepts/structured_outputs/)
 
@@ -8,6 +16,9 @@ Reference: [LangChain Structured outputs](https://python.langchain.com/docs/conc
 
 - Python 3.9+
 - An OpenAI API key in env var `OPENAI_API_KEY`
+- Optional: PostgreSQL with pgvector extension (`PGVECTOR_URL`) for document AI features
+- Optional: Google Cloud credentials for OCR (`GOOGLE_APPLICATION_CREDENTIALS`)
+- Optional: Firecrawl API key for web scraping (`FIRECRAWL_API_KEY`)
 
 ### Install and run (local)
 
@@ -84,6 +95,49 @@ docker run -e OPENAI_API_KEY=YOUR_KEY_HERE -p 8000:8000 handy-api
     - `file_base64`: base64-encoded file
     - `filename`: original filename with extension (`.pdf` or `.docx`)
   - Returns: `{ text, method }`, where `method` indicates `langchain_pypdf`, `pypdf`, or `docx2txt`
+
+- POST `/ingest` (pgvector document ingestion)
+  - Auth: requires `PGVECTOR_URL` for database connection and `OPENAI_API_KEY` for embeddings
+  - Body:
+    - `session_id`: UUID for document session/folder
+    - `files`: array of objects with `filename` and `file_base64` (supports PDF/DOCX)
+    - `raw_texts` (optional): array of objects with `name` and `text` for direct text ingestion
+  - Returns: `{ session_id, chunks }` where `chunks` is total count of text chunks stored
+
+- POST `/chat` (conversational AI with document context)
+  - Auth: requires `PGVECTOR_URL` for database access and `OPENAI_API_KEY` for chat model
+  - Body:
+    - `session_id`: UUID of previously ingested document session
+    - `messages`: array of conversation messages with `role` (`user`/`assistant`/`system`) and `content`
+    - `top_k` (optional): number of similar chunks to retrieve (default 15, max 50)
+  - Returns: `{ session_id, response, chunks, context_used }` with AI response and source chunks
+
+- POST `/setup-db` (database schema setup)
+  - Auth: requires `DATABASE_URL` or `PGVECTOR_URL` for PostgreSQL connection
+  - Body:
+    - `sql_content`: SQL statements to execute (CREATE TABLE, INSERT, etc.)
+    - `connection_string` (optional): PostgreSQL connection string
+  - Returns: `{ success, message, executed_statements }` with execution results
+
+- POST `/query-db` (full database querying)
+  - Auth: requires `DATABASE_URL` or `PGVECTOR_URL` for PostgreSQL connection
+  - Body:
+    - `sql_query`: Any SQL statement to execute (SELECT, INSERT, UPDATE, DELETE, CREATE, etc.)
+    - `connection_string` (optional): PostgreSQL connection string
+  - Returns: `{ success, columns, rows, row_count, message? }` with query results in JSON format
+
+- POST `/generate-schema` (AI-powered database schema generation)
+  - Auth: requires `OPENAI_API_KEY` for AI model access
+  - Body:
+    - `project_description`: Description of project and data requirements
+    - `additional_requirements` (optional): Specific technical requirements
+    - `model` (optional): OpenAI model name (default: "gpt-4o-mini")
+    - `temperature` (optional): Creativity level 0.0-1.0 (default: 0.1)
+  - Returns: `{ success, sql_schema, app_uuid, tables_created, explanation, message? }` with generated SQL
+
+- GET `/db-health` (database connection health check)
+  - Auth: requires `DATABASE_URL` or `PGVECTOR_URL` for PostgreSQL connection
+  - Returns: `{ status, message }` with database connectivity status
 
 ### Example (example dict as structure)
 
@@ -252,13 +306,118 @@ curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "'$SESSION_ID'",
-    "query": "Summarize the account details",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What are the main points in this document? Please provide a summary."
+      }
+    ],
     "top_k": 15
   }'
+```
+
+**Response:**
+```json
+{
+  "session_id": "c0b9f9a8-9a9a-4e9a-8a5f-4a2f2b5e0001",
+  "response": "Based on your document, here are the main points: ...",
+  "chunks": [
+    {
+      "filename": "account_details_proof_eur.pdf",
+      "chunk_id": 0,
+      "content": "Account holder: John Doe...",
+      "distance": 0.089
+    }
+  ],
+  "context_used": true
+}
+```
+
+### Example (`/setup-db`)
+
+```bash
+curl -X POST http://localhost:8000/setup-db \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sql_content": "CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, email VARCHAR(255) UNIQUE NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); INSERT INTO users (username, email) VALUES ('"'"'admin'"'"', '"'"'admin@example.com'"'"');"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Successfully executed 2 SQL statements", 
+  "executed_statements": 2
+}
+```
+
+### Example (`/query-db`)
+
+**Select Query:**
+```bash
+curl -X POST http://localhost:8000/query-db \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sql_query": "SELECT id, username, email, created_at FROM users ORDER BY created_at DESC LIMIT 10"
+  }'
+```
+
+**Insert/Update Query:**
+```bash
+curl -X POST http://localhost:8000/query-db \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sql_query": "INSERT INTO users (username, email) VALUES ('"'"'new_user'"'"', '"'"'user@example.com'"'"') RETURNING id, username"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "columns": ["id", "username", "email", "created_at"],
+  "rows": [
+    {
+      "id": 1,
+      "username": "admin",
+      "email": "admin@example.com", 
+      "created_at": "2024-01-15T10:30:00"
+    }
+  ],
+  "row_count": 1
+}
+```
+
+### Example (`/generate-schema`)
+
+```bash
+curl -X POST http://localhost:8000/generate-schema \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_description": "A weather tracking application that stores daily weather data including temperature, humidity, pressure, wind speed, and weather conditions for different cities",
+    "additional_requirements": "Include historical data storage and multiple weather stations per city"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "sql_schema": "CREATE TABLE cities_a1b2c3d4 (\n  id SERIAL PRIMARY KEY,\n  name VARCHAR(255) NOT NULL,\n  country VARCHAR(100) NOT NULL,\n  latitude DECIMAL(10,8),\n  longitude DECIMAL(11,8),\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);",
+  "app_uuid": "a1b2c3d4",
+  "tables_created": ["cities_a1b2c3d4", "weather_data_a1b2c3d4", "weather_stations_a1b2c3d4"],
+  "explanation": "Generated database schema for weather tracking application with UUID a1b2c3d4..."
+}
 ```
 
 Notes:
 - For `/extract`, install and configure Firecrawl. You can pass `api_key` in the request or configure `FIRECRAWL_API_KEY` if supported.
 - For `/render-pdf`, ensure your HTML is self-contained (inline/base64 images, embedded styles) for best fidelity.
-- For `/ingest` and `/chat`, set `PGVECTOR_URL` to your Postgres+pgvector connection string and `OPENAI_API_KEY` for embeddings.
+- For `/ingest` and `/chat`, set `PGVECTOR_URL` to your Postgres+pgvector connection string and `OPENAI_API_KEY` for both embeddings and chat responses.
+- For `/setup-db` and `/query-db`, set `DATABASE_URL` or `PGVECTOR_URL` for PostgreSQL connection.
+- For `/generate-schema`, set `OPENAI_API_KEY` for AI-powered schema generation.
+- `/chat` supports full conversation history - include previous messages to maintain context across interactions.
+- `/query-db` supports all SQL operations - SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, etc.
+- `/generate-schema` creates UUID-postfixed table names to isolate different v0 app databases.
 

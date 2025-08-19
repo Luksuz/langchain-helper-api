@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from ..api_models.ingest_request import IngestRequest
 from ..api_models.chat_request import ChatRequest
 from ..service.pgvector_service import ingest_files, search
+from ..ai_models.openai_model import get_openai_chat_model
 
 router = APIRouter()
 
@@ -35,16 +36,74 @@ def post_ingest(body: IngestRequest) -> JSONResponse:
 @router.post("/chat")
 def post_chat(body: ChatRequest) -> JSONResponse:
     try:
-        hits = search(body.session_id, body.query, body.top_k)
+        print(f"[CHAT] Starting chat for session: {body.session_id}")
+        print(f"[CHAT] Received {len(body.messages)} messages")
+        
+        # Find the latest user message for similarity search
+        latest_user_message = None
+        for msg in reversed(body.messages):
+            if msg.role == "user":
+                latest_user_message = msg.content
+                break
+        
+        if not latest_user_message:
+            raise HTTPException(status_code=400, detail="No user message found")
+        
+        print(f"[CHAT] Latest user message: {latest_user_message[:100]}...")
+        
+        # Get relevant chunks using similarity search
+        hits = search(body.session_id, latest_user_message, body.top_k)
+        print(f"[CHAT] Found {len(hits)} relevant chunks")
+        
+        # Build context from retrieved chunks
+        context_chunks = []
+        for fn, cid, ct, dist in hits:
+            context_chunks.append(f"[From {fn}, chunk {cid}]\n{ct}")
+        
+        context = "\n\n---\n\n".join(context_chunks)
+        print(f"[CHAT] Built context with {len(context)} characters")
+        
+        # Build the system prompt with context
+        system_prompt = f"""You are a helpful AI assistant. Answer the user's question based on the provided context from their documents.
+
+Context from documents:
+{context}
+
+Instructions:
+- Answer based primarily on the provided context
+- If the context doesn't contain relevant information, say so clearly
+- Be concise but comprehensive
+- Reference specific documents when possible"""
+
+        # Prepare messages for OpenAI (system + conversation history)
+        openai_messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add conversation history
+        for msg in body.messages:
+            openai_messages.append({"role": msg.role, "content": msg.content})
+        
+        print(f"[CHAT] Calling OpenAI with {len(openai_messages)} messages")
+        
+        # Generate response using OpenAI
+        chat_model = get_openai_chat_model("gpt-4o-mini", temperature=0.1)
+        response = chat_model.invoke(openai_messages)
+        
+        assistant_response = response.content
+        print(f"[CHAT] Generated response with {len(assistant_response)} characters")
+        
+        # Return both chunks and generated response
+        return JSONResponse({
+            "session_id": body.session_id,
+            "response": assistant_response,
+            "chunks": [
+                {"filename": fn, "chunk_id": cid, "content": ct, "distance": dist}
+                for fn, cid, ct, dist in hits
+            ],
+            "context_used": len(hits) > 0
+        })
+        
     except Exception as exc:
+        print(f"[CHAT] Error during chat: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
-    return JSONResponse({
-        "session_id": body.session_id,
-        "query": body.query,
-        "results": [
-            {"filename": fn, "chunk_id": cid, "content": ct, "distance": dist}
-            for fn, cid, ct, dist in hits
-        ]
-    })
 
 

@@ -1,134 +1,118 @@
-CREATE TABLE users_c54a1e31 (
+CREATE TABLE sessions_84f04d32 (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    display_name VARCHAR(200),
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    session_uuid VARCHAR(36) UNIQUE NOT NULL,
+    name VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE sources_c54a1e31 (
+CREATE TABLE scrape_requests_84f04d32 (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    base_url VARCHAR(500) UNIQUE,
-    description TEXT,
+    session_id INTEGER REFERENCES sessions_84f04d32(id),
+    urls TEXT NOT NULL,
+    prompt TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE articles_c54a1e31 (
+CREATE TABLE articles_84f04d32 (
     id SERIAL PRIMARY KEY,
-    source_id INTEGER REFERENCES sources_c54a1e31(id),
-    url VARCHAR(1000) UNIQUE NOT NULL,
-    title VARCHAR(1000) NOT NULL,
-    authors VARCHAR(500),
-    publication_date TIMESTAMP,
-    fetched_at TIMESTAMP,
-    http_status INTEGER,
-    word_count INTEGER,
-    content TEXT,
+    scrape_id INTEGER REFERENCES scrape_requests_84f04d32(id),
+    session_id INTEGER REFERENCES sessions_84f04d32(id),
+    title VARCHAR(500) NOT NULL,
+    author VARCHAR(255),
+    published_at TIMESTAMP,
     summary TEXT,
+    body TEXT,
     tags TEXT,
+    url VARCHAR(2048),
+    filename VARCHAR(255),
+    ingested BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE article_extractions_c54a1e31 (
+CREATE TABLE files_84f04d32 (
     id SERIAL PRIMARY KEY,
-    article_id INTEGER REFERENCES articles_c54a1e31(id) NOT NULL,
-    extraction_type VARCHAR(100) NOT NULL,
-    extraction_text TEXT NOT NULL,
-    confidence DECIMAL(5,4),
+    article_id INTEGER REFERENCES articles_84f04d32(id),
+    filename VARCHAR(255) NOT NULL,
+    file_base64 TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE user_saved_articles_c54a1e31 (
+CREATE TABLE chunks_84f04d32 (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users_c54a1e31(id) NOT NULL,
-    article_id INTEGER REFERENCES articles_c54a1e31(id) NOT NULL,
-    note TEXT,
-    is_selected BOOLEAN NOT NULL DEFAULT TRUE,
+    file_id INTEGER REFERENCES files_84f04d32(id),
+    chunk_index INTEGER NOT NULL,
+    content TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE chats_c54a1e31 (
+CREATE TABLE chat_messages_84f04d32 (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users_c54a1e31(id) NOT NULL,
-    title VARCHAR(500),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    session_id INTEGER REFERENCES sessions_84f04d32(id),
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE chat_article_links_c54a1e31 (
+CREATE TABLE chat_responses_84f04d32 (
     id SERIAL PRIMARY KEY,
-    chat_id INTEGER REFERENCES chats_c54a1e31(id) NOT NULL,
-    article_id INTEGER REFERENCES articles_c54a1e31(id) NOT NULL,
-    note TEXT,
+    chat_message_id INTEGER REFERENCES chat_messages_84f04d32(id),
+    response TEXT,
+    context_used BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE chat_messages_c54a1e31 (
+CREATE TABLE chat_response_chunks_84f04d32 (
     id SERIAL PRIMARY KEY,
-    chat_id INTEGER REFERENCES chats_c54a1e31(id) NOT NULL,
-    user_id INTEGER REFERENCES users_c54a1e31(id),
-    role VARCHAR(50) NOT NULL, -- e.g., 'user', 'assistant', 'system'
-    message TEXT NOT NULL,
+    chat_response_id INTEGER REFERENCES chat_responses_84f04d32(id),
+    filename VARCHAR(255),
+    chunk_id INTEGER,
+    content TEXT,
+    distance DECIMAL(8,6),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_users_c54a1e31_email ON users_c54a1e31(email);
-CREATE INDEX idx_users_c54a1e31_username ON users_c54a1e31(username);
-CREATE INDEX idx_sources_c54a1e31_name ON sources_c54a1e31(name);
-CREATE INDEX idx_articles_c54a1e31_url ON articles_c54a1e31(url);
-CREATE INDEX idx_articles_c54a1e31_title ON articles_c54a1e31(title);
-CREATE INDEX idx_articles_c54a1e31_publication_date ON articles_c54a1e31(publication_date);
-CREATE INDEX idx_articles_c54a1e31_source_id ON articles_c54a1e31(source_id);
-CREATE INDEX idx_article_extractions_c54a1e31_article_id ON article_extractions_c54a1e31(article_id);
-CREATE INDEX idx_user_saved_articles_c54a1e31_user_id ON user_saved_articles_c54a1e31(user_id);
-CREATE INDEX idx_chats_c54a1e31_user_id ON chats_c54a1e31(user_id);
-CREATE INDEX idx_chat_messages_c54a1e31_chat_id ON chat_messages_c54a1e31(chat_id);
-CREATE INDEX idx_chat_messages_c54a1e31_created_at ON chat_messages_c54a1e31(created_at);
-CREATE INDEX idx_chat_article_links_c54a1e31_chat_id ON chat_article_links_c54a1e31(chat_id);
+CREATE INDEX idx_sessions_84f04d32_uuid ON sessions_84f04d32(session_uuid);
+CREATE INDEX idx_scrape_84f04d32_session ON scrape_requests_84f04d32(session_id);
+CREATE INDEX idx_articles_84f04d32_title ON articles_84f04d32(title);
+CREATE INDEX idx_articles_84f04d32_url ON articles_84f04d32(url);
+CREATE INDEX idx_files_84f04d32_filename ON files_84f04d32(filename);
+CREATE INDEX idx_chunks_84f04d32_file ON chunks_84f04d32(file_id);
+CREATE INDEX idx_chat_messages_84f04d32_session ON chat_messages_84f04d32(session_id);
+CREATE INDEX idx_chat_responses_84f04d32_chatmsg ON chat_responses_84f04d32(chat_message_id);
+CREATE INDEX idx_chat_resp_chunks_84f04d32_response ON chat_response_chunks_84f04d32(chat_response_id);
 
-INSERT INTO users_c54a1e31 (username, email, display_name, is_admin) VALUES
-    ('admin', 'admin@example.com', 'Site Admin', TRUE),
-    ('jane_doe', 'jane.doe@example.com', 'Jane Doe', FALSE),
-    ('mark_reader', 'mark@example.com', 'Mark Reader', FALSE);
+INSERT INTO sessions_84f04d32 (session_uuid, name) VALUES
+    ('c0b9f9a8-9a9a-4e9a-8a5f-4a2f2b5e0001', 'News Session'),
+    ('a1b2c3d4-1111-2222-3333-444455556666', 'Research Session');
 
-INSERT INTO sources_c54a1e31 (name, base_url, description) VALUES
-    ('Global News Daily', 'https://www.globalnews.example', 'International news outlet covering world events.'),
-    ('Tech Insider', 'https://techinsider.example', 'Technology news and analysis.'),
-    ('Local Post', 'https://localpost.example', 'Community and local city reporting.');
+INSERT INTO scrape_requests_84f04d32 (session_id, urls, prompt) VALUES
+    (1, 'https://news.site/article1\nhttps://news.site/article2', 'Extract title author date summary body tags'),
+    (2, 'https://example.com/news1', 'Extract title author date summary body tags');
 
-INSERT INTO articles_c54a1e31 (source_id, url, title, authors, publication_date, fetched_at, http_status, word_count, content, summary, tags) VALUES
-    (1, 'https://www.globalnews.example/world/2025/08/19/peace-talks', 'Breakthrough in Peace Talks Between Nations', 'Alice Martin', '2025-08-18 09:30:00', '2025-08-18 09:35:22', 200, 820, 'Full article content text goes here. It contains paragraphs of details about the negotiations, statements from officials, and background context.', 'High-level summary: Diplomatic talks led to preliminary agreement on trade and security matters.', 'diplomacy,world,trade'),
-    (2, 'https://techinsider.example/articles/ai-privacy-2025', 'New Guidelines for AI and User Privacy', 'Ravi Singh', '2025-08-17 14:00:00', '2025-08-17 14:02:10', 200, 1150, 'Article content discussing new guidelines proposed for AI systems, privacy controls, and regulatory impacts.', 'Summary: Industry groups and regulators propose updated privacy guidance for AI products.', 'ai,privacy,policy'),
-    (3, 'https://localpost.example/city/parks-renovation', 'City Approves Major Parks Renovation Plan', 'Maria Lopez', '2025-08-16 08:15:00', '2025-08-16 08:20:00', 200, 540, 'Local article describing approved budget, timelines, and community input for park renovations across the city.', 'Summary: Council approved a multi-year renovation plan for several parks.', 'local,community,parks');
+INSERT INTO articles_84f04d32 (scrape_id, session_id, title, author, published_at, summary, body, tags, url, filename, ingested) VALUES
+    (1, 1, 'Sample Title One', 'John Doe', '2025-01-01 10:00:00', 'Short summary one', 'Full body text one', 'news,tech', 'https://news.site/article1', 'article-1.txt', false),
+    (1, 1, 'Sample Title Two', 'Jane Smith', '2025-01-02 11:00:00', 'Short summary two', 'Full body text two', 'news,world', 'https://news.site/article2', 'article-2.txt', false),
+    (2, 2, 'Test Article', 'John Doe', '2025-02-01 09:00:00', 'Short summary', 'Full body text', 'sample', 'https://example.com/news1', 'news1.txt', false);
 
-INSERT INTO article_extractions_c54a1e31 (article_id, extraction_type, extraction_text, confidence) VALUES
-    (1, 'summary', 'Diplomatic talks resulted in a framework agreement addressing trade quotas and security cooperation.', 0.9400),
-    (1, 'entities', 'Alice Martin; Foreign Minister; Trade Commission', 0.8500),
-    (2, 'summary', 'Proposed guidelines focus on data minimization, user consent, and auditability for AI systems.', 0.9100),
-    (2, 'keywords', 'AI, privacy, regulation, audit', 0.7800),
-    (3, 'summary', 'City council approved funds and a timeline to renovate neighborhood parks over the next three years.', 0.8700);
+INSERT INTO files_84f04d32 (article_id, filename, file_base64) VALUES
+    (1, 'article-1.txt', 'base64data'),
+    (2, 'article-2.txt', 'base64data'),
+    (3, 'news1.txt', 'base64data');
 
-INSERT INTO user_saved_articles_c54a1e31 (user_id, article_id, note, is_selected) VALUES
-    (2, 1, 'Relevant for international relations briefing', TRUE),
-    (2, 2, 'Follow-up for privacy policy research', TRUE),
-    (3, 3, 'Share with local community group', TRUE);
+INSERT INTO chunks_84f04d32 (file_id, chunk_index, content) VALUES
+    (1, 1, 'Simple chunk text one'),
+    (1, 2, 'Simple chunk text two'),
+    (2, 1, 'Simple chunk text three');
 
-INSERT INTO chats_c54a1e31 (user_id, title, is_active) VALUES
-    (2, 'Discussion on AI privacy guidelines', TRUE),
-    (2, 'World affairs: peace talks follow-up', TRUE),
-    (3, 'Community parks project planning', TRUE);
+INSERT INTO chat_messages_84f04d32 (session_id, role, content) VALUES
+    (1, 'user', 'Summarize the main points'),
+    (1, 'user', 'What are the key facts');
 
-INSERT INTO chat_article_links_c54a1e31 (chat_id, article_id, note) VALUES
-    (1, 2, 'Primary article for policy discussion'),
-    (2, 1, 'Source article for follow-up questions'),
-    (3, 3, 'Reference for community meeting agenda');
+INSERT INTO chat_responses_84f04d32 (chat_message_id, response, context_used) VALUES
+    (1, 'Here are the key points from the articles', true),
+    (2, 'Here are the facts from the source', true);
 
-INSERT INTO chat_messages_c54a1e31 (chat_id, user_id, role, message) VALUES
-    (1, 2, 'user', 'I want to discuss how the new guidelines will affect small startups.'),
-    (1, 1, 'assistant', 'We can review the summary and extract key compliance items relevant to startups.'),
-    (2, 2, 'user', 'Can you summarize the security provisions from the peace talks article?'),
-    (2, 1, 'assistant', 'Summary: The agreement mentions joint patrols and shared intelligence frameworks.'),
-    (3, 3, 'user', 'What are the timelines mentioned for the main park renovations?'),
-    (3, 1, 'assistant', 'The article states a multi-year plan starting Q1 next year with phased work over three years.');
+INSERT INTO chat_response_chunks_84f04d32 (chat_response_id, filename, chunk_id, content, distance) VALUES
+    (1, 'article-1.txt', 1, 'Simple chunk text one', 0.0800),
+    (1, 'article-2.txt', 1, 'Simple chunk text three', 0.1200),
+    (2, 'news1.txt', 1, 'Simple chunk text two', 0.0500);

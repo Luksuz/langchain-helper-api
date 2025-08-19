@@ -30,9 +30,8 @@ CRITICAL REQUIREMENTS:
 2. Always include an 'id' column as SERIAL PRIMARY KEY for each table
 3. Use ONLY basic PostgreSQL data types: VARCHAR, TEXT, INTEGER, DECIMAL, BOOLEAN, TIMESTAMP
 4. Include created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP for each table
-5. Add simple indexes using CREATE INDEX statements
-6. Add foreign key relationships using REFERENCES
-7. Include sample INSERT statements with realistic data
+5. Add foreign key relationships using REFERENCES
+6. Include sample INSERT statements with realistic data
 
 FORBIDDEN - DO NOT USE:
 - Triggers or functions
@@ -49,14 +48,6 @@ FORBIDDEN - DO NOT USE:
 - Names with apostrophes or quotes (use simple names like "John Doe")
 
 Keep it SIMPLE and RELIABLE. Focus on basic table structure that works.
-
-SAMPLE DATA RULES:
-- Use only simple words and basic sentences
-- No apostrophes, quotes, or special characters in strings
-- Keep text under 50 characters
-- Use basic names like "John Doe", "Test Item", "Sample Data"
-- Use simple email addresses like "user@example.com"
-- Avoid complex sentences or punctuation
 
 Example output format:
 CREATE TABLE users_{app_uuid} (
@@ -76,16 +67,6 @@ CREATE TABLE articles_{app_uuid} (
 
 CREATE INDEX idx_users_{app_uuid}_email ON users_{app_uuid}(email);
 CREATE INDEX idx_articles_{app_uuid}_title ON articles_{app_uuid}(title);
-
-INSERT INTO users_{app_uuid} (username, email) VALUES 
-    ('admin', 'admin@example.com'),
-    ('john', 'john@example.com');
-
-INSERT INTO articles_{app_uuid} (title, content, tags) VALUES 
-    ('Sample Title', 'Simple content', 'news,tech'),
-    ('Test Article', 'Basic text', 'sample,test');
-
-IMPORTANT: Keep all sample data simple with no quotes, apostrophes, or special characters!
 
 Return ONLY the SQL schema - no explanations, no markdown, no complex features."""
         

@@ -4,7 +4,7 @@ Use this to extract text (and basic structure) from images using a configured Do
 
 Sample request
 ```http
-POST /ocr
+POST https://langchain-helper-api-production.up.railway.app/ocr
 Content-Type: application/json
 
 {

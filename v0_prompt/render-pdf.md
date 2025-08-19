@@ -4,7 +4,7 @@ Use this to convert AI-generated HTML into a PDF. Prefer linking a static Tailwi
 
 Sample request
 ```http
-POST /render-pdf
+POST https://langchain-helper-api-production.up.railway.app/render-pdf
 Content-Type: application/json
 
 {

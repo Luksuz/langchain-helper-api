@@ -4,7 +4,7 @@ Use this when you need quick text extraction from digital PDFs or DOCX files. Th
 
 Sample request
 ```http
-POST /extract-text
+POST https://langchain-helper-api-production.up.railway.app/extract-text
 Content-Type: application/json
 
 {

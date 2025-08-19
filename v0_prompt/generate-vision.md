@@ -4,7 +4,7 @@ Use this when your prompt includes one or more images and you need structured JS
 
 Sample request
 ```http
-POST /generate-vision
+POST https://langchain-helper-api-production.up.railway.app/generate-vision
 Content-Type: application/json
 
 {

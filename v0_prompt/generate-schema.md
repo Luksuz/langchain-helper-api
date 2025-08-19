@@ -11,7 +11,7 @@ Use this to automatically generate PostgreSQL database schemas based on your pro
 
 Sample request
 ```http
-POST /generate-schema
+POST https://langchain-helper-api-production.up.railway.app/generate-schema
 Content-Type: application/json
 
 {

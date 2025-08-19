@@ -4,7 +4,7 @@ Use this when you need a structured JSON response from text-only prompts.
 
 Sample request
 ```http
-POST /generate
+POST https://langchain-helper-api-production.up.railway.app/generate
 Content-Type: application/json
 
 {

@@ -106,6 +106,7 @@ def select_v0_guides(user_description: str, model_name: str, temperature: float)
         content=(
             "You are an expert API capability selector. Based on the user's app idea, "
             "choose the minimal set of endpoint guide files needed to implement it. "
+            "ALWAYS include 'README.md' as it contains critical Next.js integration patterns. "
             "Return ONLY the list of filenames via the provided structured output schema."
         )
     )
@@ -113,14 +114,22 @@ def select_v0_guides(user_description: str, model_name: str, temperature: float)
         content=(
             f"User app idea:\n{user_description}\n\n"
             "Available endpoint guides (filename + full content):\n"
-            f"{catalog}"
+            f"{catalog}\n\n"
+            "IMPORTANT: Always include 'README.md' in your selection as it contains essential Next.js API route patterns."
         )
     )
 
     selector = chat_model.with_structured_output(GuideSelection)
     result: GuideSelection = selector.invoke([system, human])
     print("result", result)
-    return result.files
+    
+    # Ensure README.md is always included
+    selected_files = result.files
+    if "README.md" not in selected_files:
+        selected_files.insert(0, "README.md")  # Add at the beginning for priority
+        print("Added README.md to selection (was missing)")
+    
+    return selected_files
 
 
 def enhance_v0_prompt(user_description: str, model_name: str, temperature: float) -> str:
@@ -143,11 +152,34 @@ def enhance_v0_prompt(user_description: str, model_name: str, temperature: float
     guardrails = (
         "You are an expert app-builder prompt engineer. Rewrite the user's description "
         "into a concise, explicit prompt for an app builder (like V0). "
-        "Specify: inputs, UI elements, actions/triggers, calls to THIS backend's endpoints (if relevant), and "
+        "Specify: inputs, UI elements, actions/triggers, backend integration via Next.js API routes, and "
         "expected outputs. Do NOT reference or require any SDKs for LLMs, scraping, or PDF generation other than the "
         "endpoints and capabilities described in the context. Keep it brief but unambiguous."
-        "Provide the example request and response for the endpoints if it should be used."
-        "Explicitly say to not generate mock data, use real requests and  data from the endpoints as described."
+        ""
+        "CRITICAL BACKEND INTEGRATION PATTERN:"
+        "- Create Next.js API routes in the /api folder that proxy to the backend"
+        "- Frontend components should call local API routes (e.g., /api/extract, /api/chat)"
+        "- API routes should forward requests to: https://langchain-helper-api-production.up.railway.app"
+        "- Do NOT make direct calls from frontend to external APIs"
+        ""
+        "Example API route pattern:"
+        "```typescript"
+        "// /api/extract/route.ts"
+        "export async function POST(request: Request) {"
+        "  const body = await request.json();"
+        "  const response = await fetch('https://langchain-helper-api-production.up.railway.app/extract', {"
+        "    method: 'POST',"
+        "    headers: { 'Content-Type': 'application/json' },"
+        "    body: JSON.stringify(body)"
+        "  });"
+        "  return Response.json(await response.json());"
+        "}"
+        "```"
+        ""
+        "Frontend should call: fetch('/api/extract', { method: 'POST', body: ... })"
+        ""
+        "Provide the example request and response for the endpoints if they should be used."
+        "Explicitly say to not generate mock data, use real requests via the API routes as described."
         ""
     )
     system = SystemMessage(

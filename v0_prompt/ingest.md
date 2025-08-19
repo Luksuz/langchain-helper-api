@@ -4,7 +4,7 @@ Use this to create a logical folder by `session_id` and ingest files. The servic
 
 Sample request
 ```http
-POST /ingest
+POST https://langchain-helper-api-production.up.railway.app/ingest
 Content-Type: application/json
 
 {

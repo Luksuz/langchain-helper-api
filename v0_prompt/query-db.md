@@ -10,7 +10,7 @@ Use this to execute any SQL query against your database and get results in a sta
 
 Sample request
 ```http
-POST /query-db
+POST https://langchain-helper-api-production.up.railway.app/query-db
 Content-Type: application/json
 
 {

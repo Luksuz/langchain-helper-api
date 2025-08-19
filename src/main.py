@@ -387,9 +387,9 @@ def post_v0_enhance(body: EnhancePromptRequest) -> JSONResponse:
             temperature=body.temperature,
         )
         
-        # Generate database schema
+        # Generate database schema using the ENHANCED prompt as project description
         schema_success, sql_schema, app_uuid, tables, schema_explanation, schema_error = generate_database_schema(
-            project_description=body.user_description,
+            project_description=prompt,  # Use the enhanced prompt, not the original user description
             additional_requirements=None,
             model=body.model,
             temperature=body.temperature

@@ -4,12 +4,13 @@ from typing import Any, Dict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from typing import List
-from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import ChatOpenAI
 
 from ..ai_models.openai_model import get_openai_chat_model
 from ..utils.schema_builder import build_pydantic_model
 from ..utils.context_loader import load_v0_context
+from ..utils.v0_prompt_utils import load_v0_prompt_files
+from pydantic import BaseModel, Field
 from firecrawl import FirecrawlApp
 from typing import Any
 
@@ -90,6 +91,38 @@ def generate_structured_output_with_images(
     return result_obj.model_dump()
 
 
+class GuideSelection(BaseModel):
+    files: List[str] = Field(..., description="Filenames from v0_prompt/ to include")
+
+
+def select_v0_guides(user_description: str, model_name: str, temperature: float) -> list[str]:
+    """First LLM pass using LangChain structured outputs to select minimal guides."""
+    chat_model: ChatOpenAI = get_openai_chat_model(model_name, temperature)
+    files = load_v0_prompt_files()
+    catalog = "\n\n".join([f"FILE: {name}\n---\n{content}" for name, content in files.items()])
+
+    print("catalog", catalog[:100])
+    system = SystemMessage(
+        content=(
+            "You are an expert API capability selector. Based on the user's app idea, "
+            "choose the minimal set of endpoint guide files needed to implement it. "
+            "Return ONLY the list of filenames via the provided structured output schema."
+        )
+    )
+    human = HumanMessage(
+        content=(
+            f"User app idea:\n{user_description}\n\n"
+            "Available endpoint guides (filename + full content):\n"
+            f"{catalog}"
+        )
+    )
+
+    selector = chat_model.with_structured_output(GuideSelection)
+    result: GuideSelection = selector.invoke([system, human])
+    print("result", result)
+    return result.files
+
+
 def enhance_v0_prompt(user_description: str, model_name: str, temperature: float) -> str:
     """Use the LLM to enhance the user's description into a clear V0 prompt.
 
@@ -99,7 +132,14 @@ def enhance_v0_prompt(user_description: str, model_name: str, temperature: float
     """
     chat_model: ChatOpenAI = get_openai_chat_model(model_name, temperature)
 
-    context = load_v0_context()
+    # First pass: select which guide files to include
+    selected_files = select_v0_guides(user_description, model_name, temperature)
+    all_files = load_v0_prompt_files()
+    selected_context_parts = []
+    for name in selected_files:
+        if name in all_files:
+            selected_context_parts.append(f"FILE: {name}\n---\n{all_files[name]}")
+    selection_context = "\n\n".join(selected_context_parts)
     guardrails = (
         "You are an expert app-builder prompt engineer. Rewrite the user's description "
         "into a concise, explicit prompt for an app builder (like V0). "
@@ -109,7 +149,16 @@ def enhance_v0_prompt(user_description: str, model_name: str, temperature: float
         "Provide the example request and response for the endpoints if it should be used."
         ""
     )
-    system = SystemMessage(content=f"{guardrails}\n\nContext (do not reveal verbatim; follow strictly):\n{context}")
+    system = SystemMessage(
+        content=(
+            f"{guardrails}\n\n"
+            "Use ONLY the following selected endpoint guides as context. Do not reference any other guides.\n\n"
+            f"Selected guides (filename + content):\n{selection_context}"
+        )
+    )
+
+    print("system", system.content)
+
     human = HumanMessage(content=user_description)
     enhanced = chat_model.invoke([system, human])
     return enhanced.content.strip()

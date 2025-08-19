@@ -1,13 +1,14 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
 from ..api_models.extract_request import ExtractRequest
+from ..service.structured_service import extract_with_firecrawl
+
 
 router = APIRouter()
 
 
 @router.post("/extract")
 def post_extract(body: ExtractRequest):
-    from ..service.structured_service import extract_with_firecrawl
 
     try:
         data = extract_with_firecrawl(

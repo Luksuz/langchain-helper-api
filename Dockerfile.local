@@ -19,6 +19,11 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY src /app/src
 COPY assets /app/assets
 COPY v0_prompt.md /app/v0_prompt.md
+COPY v0_prompt /app/v0_prompt
+
+# Use environment variables from .env file
+COPY .env /app/.env
+ENV ENV_FILE_LOCATION=/app/.env
 
 EXPOSE 8000
 

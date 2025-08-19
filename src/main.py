@@ -1,22 +1,15 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from fastapi.encoders import jsonable_encoder
-from .api_models.structured_request import StructuredGenRequest
-from .api_models.structured_response import StructuredGenResponse
-from .service.structured_service import generate_structured_output, generate_structured_output_with_images
-from .api_models.structured_vision_request import StructuredGenVisionRequest
-from .api_models.builder_prompt_request import BuilderPromptRequest
+from fastapi.responses import HTMLResponse, JSONResponse
 from .api_models.prompt_enhance_request import EnhancePromptRequest
-from .api_models.extract_request import ExtractRequest
-from .api_models.client_message_request import ClientMessageRequest
-from .api_models.render_pdf_request import RenderPdfRequest
-from .utils.context_loader import load_v0_context
+
 
 from .routers.generation import router as generation_router
 from .routers.extract import router as extract_router
 from .routers.render_pdf import router as render_pdf_router
 from .routers.client_message import router as client_message_router
+from .routers.text_processing import router as text_processing_router
+from .routers.pgvector_router import router as pgvector_router
 
 app = FastAPI(title="Handy Structured Output API", version="0.1.0")
 
@@ -33,6 +26,8 @@ app.include_router(generation_router)
 app.include_router(extract_router)
 app.include_router(render_pdf_router)
 app.include_router(client_message_router)
+app.include_router(text_processing_router)
+app.include_router(pgvector_router)
 
 
 @app.get("/builder", response_class=HTMLResponse)

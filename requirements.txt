@@ -4,5 +4,13 @@ langchain-openai
 uvicorn
 firecrawl
 pdfkit
+google-cloud-documentai
+langchain-community
+pypdf
+docx2txt
+openpyxl
+SQLAlchemy
+psycopg[binary]
+pgvector
 
 python-dotenv

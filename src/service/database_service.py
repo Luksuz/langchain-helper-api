@@ -82,21 +82,32 @@ def query_database(sql_query: str, connection_string: str = None) -> Tuple[bool,
             print(f"[DB_QUERY] Executing query...")
             result = conn.execute(text(sql_query))
             
-            # Get column names
-            columns = list(result.keys()) if result.keys() else []
-            print(f"[DB_QUERY] Found {len(columns)} columns: {columns}")
-            
-            # Get all rows as dictionaries
-            rows = []
-            for row in result:
-                row_dict = {col: _serialize_value(row[i]) for i, col in enumerate(columns)}
-                rows.append(row_dict)
-            
-            row_count = len(rows)
-            print(f"[DB_QUERY] Retrieved {row_count} rows")
-            
-            message = f"Successfully executed query, returned {row_count} rows"
-            return True, columns, rows, row_count, message
+            # Check if this query returns rows (SELECT, INSERT/UPDATE/DELETE with RETURNING)
+            try:
+                # Try to get column names - this will work for SELECT and RETURNING queries
+                columns = list(result.keys()) if result.keys() else []
+                print(f"[DB_QUERY] Found {len(columns)} columns: {columns}")
+                
+                # Get all rows as dictionaries
+                rows = []
+                for row in result:
+                    row_dict = {col: _serialize_value(row[i]) for i, col in enumerate(columns)}
+                    rows.append(row_dict)
+                
+                row_count = len(rows)
+                print(f"[DB_QUERY] Retrieved {row_count} rows")
+                
+                message = f"Successfully executed query, returned {row_count} rows"
+                return True, columns, rows, row_count, message
+                
+            except Exception:
+                # This is likely an INSERT/UPDATE/DELETE without RETURNING
+                # These queries don't return rows, but they may have rowcount
+                affected_rows = result.rowcount if hasattr(result, 'rowcount') else 0
+                print(f"[DB_QUERY] Query executed successfully, affected {affected_rows} rows")
+                
+                message = f"Successfully executed query, affected {affected_rows} rows"
+                return True, [], [], affected_rows, message
             
     except SQLAlchemyError as e:
         error_msg = f"Database error during query: {str(e)}"

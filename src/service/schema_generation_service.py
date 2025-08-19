@@ -37,10 +37,13 @@ CRITICAL REQUIREMENTS:
 FORBIDDEN - DO NOT USE:
 - Triggers or functions
 - Dollar-quoted strings ($$)
+- Array types (TEXT[], VARCHAR[], etc.) - use TEXT or VARCHAR instead
+- JSON or JSONB types - use TEXT instead
 - Complex constraints beyond NOT NULL, UNIQUE, and REFERENCES
 - Advanced PostgreSQL features
 - Stored procedures or custom functions
 - Complex UPDATE triggers
+- ARRAY constructors in INSERT statements
 
 Keep it SIMPLE and RELIABLE. Focus on basic table structure that works.
 
@@ -52,11 +55,24 @@ CREATE TABLE users_{app_uuid} (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE articles_{app_uuid} (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(500) NOT NULL,
+    content TEXT,
+    tags TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_users_{app_uuid}_email ON users_{app_uuid}(email);
+CREATE INDEX idx_articles_{app_uuid}_title ON articles_{app_uuid}(title);
 
 INSERT INTO users_{app_uuid} (username, email) VALUES 
     ('admin', 'admin@example.com'),
     ('user1', 'user1@example.com');
+
+INSERT INTO articles_{app_uuid} (title, content, tags) VALUES 
+    ('Sample Article', 'Article content here', 'tag1,tag2,tag3'),
+    ('Another Article', 'More content', 'news,tech');
 
 Return ONLY the SQL schema - no explanations, no markdown, no complex features."""
         

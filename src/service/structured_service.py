@@ -147,6 +147,7 @@ def enhance_v0_prompt(user_description: str, model_name: str, temperature: float
         "expected outputs. Do NOT reference or require any SDKs for LLMs, scraping, or PDF generation other than the "
         "endpoints and capabilities described in the context. Keep it brief but unambiguous."
         "Provide the example request and response for the endpoints if it should be used."
+        "Explicitly say to not generate mock data, use real requests and  data from the endpoints as described."
         ""
     )
     system = SystemMessage(

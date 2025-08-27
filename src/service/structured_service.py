@@ -13,6 +13,7 @@ from ..utils.v0_prompt_utils import load_v0_prompt_files
 from pydantic import BaseModel, Field
 from firecrawl import FirecrawlApp
 from typing import Any
+import os
 
 
 def generate_structured_output(
@@ -75,10 +76,14 @@ def generate_structured_output_with_images(
     # Build multimodal content for the user message (OpenAI-compatible)
     content: List[dict] = [{"type": "text", "text": user_prompt}]
     for img in images:
-        if img.get("source_type") == "base64" and img.get("data"):
-            mime = img.get("mime_type", "image/jpeg")
-            data_url = f"data:{mime};base64,{img['data']}"
-            content.append({"type": "image_url", "image_url": {"url": data_url}})
+        if img.get("source_type") == "base64":
+            # Accept multiple possible keys from frontend: data | b64 | base64
+            b64_data = img.get("data") or img.get("b64") or img.get("base64")
+            if b64_data:
+                # Accept both mime_type and mimeType
+                mime = img.get("mime_type") or img.get("mimeType") or "image/jpeg"
+                data_url = f"data:{mime};base64,{b64_data}"
+                content.append({"type": "image_url", "image_url": {"url": data_url}})
         elif img.get("source_type") == "url" and img.get("url"):
             content.append({"type": "image_url", "image_url": {"url": img["url"]}})
 
@@ -229,6 +234,26 @@ def extract_with_firecrawl(urls: list[str], prompt: str, structure: dict, api_ke
     if isinstance(data, dict):
         return data
     # If all else fails, wrap as string
+    return {"result": str(result)}
+
+
+def screenshot_with_firecrawl(url: str, options: dict | None = None) -> dict:
+    """Use Firecrawl to take a screenshot and return the response. Uses FIRECRAWL_SCREENSHOT_API."""
+    api_key = os.environ.get("FIRECRAWL_SCREENSHOT_API")
+    if not api_key:
+        raise RuntimeError("FIRECRAWL_SCREENSHOT_API is not set")
+
+    app = FirecrawlApp(api_key=api_key)
+    # Firecrawl SDK expects a list for extract; for single URL wrap in list
+    payload_opts = options or {}
+    # Many SDKs accept options directly; if not, adjust as needed
+    result = app.extract([url], **payload_opts)
+    if isinstance(result, dict):
+        return result
+    # Fallback normalization to dict
+    data: Any = getattr(result, "__dict__", None)
+    if isinstance(data, dict):
+        return data
     return {"result": str(result)}
 
 

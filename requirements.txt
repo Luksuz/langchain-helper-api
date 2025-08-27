@@ -2,7 +2,7 @@ fastapi
 langchain
 langchain-openai
 uvicorn
-firecrawl
+firecrawl==2.16.0
 pdfkit
 google-cloud-documentai
 langchain-community
